@@ -39,5 +39,5 @@ Then open `.env` file, change the `USER_NAME`, `PASSWORD` variable to your own.
 To get the schedule of yours, send a `GET` request to `/` by using `curl` or `Postman`:
 
 ```bash
-   curl http://localhost:3000/
+   curl http://localhost:8080/
 ```
