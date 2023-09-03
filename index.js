@@ -1,19 +1,33 @@
 const puppeteer = require('puppeteer')
 const dotenv = require('dotenv')
-const fs = require('fs')
+const express = require('express')
+
+// Set up
+const app = express()
 dotenv.config()
 
-const program = async () => {
+// Destination URL
+const mybkURL =
+    'https://sso.hcmut.edu.vn/cas/login?service=https://mybk.hcmut.edu.vn/my/homeSSO.action'
+
+// Middleware
+app.use(express.json())
+
+// Routes
+// Get the schedule.
+app.get('/', async (req, res) => {
+    const scrapedData = {
+        title: [],
+        table: [],
+    }
     const browser = await puppeteer.launch({
-        headless: false,
+        headless: 'new',
         defaultViewport: null,
     })
     const page = await browser.newPage()
 
     // Go to the page you want to test
-    await page.goto(
-        'https://sso.hcmut.edu.vn/cas/login?service=https://mybk.hcmut.edu.vn/my/homeSSO.action'
-    )
+    await page.goto(mybkURL)
 
     // Get the username and password field
     const usernameField = await page.$('#username')
@@ -28,6 +42,7 @@ const program = async () => {
     await submitButton.click()
 
     await page.waitForNavigation() // Wait for the page to redirect.
+    console.log('Logged in successfully!')
 
     // Get the stinfo link element.
     const stinfoLink = await page.$(
@@ -63,7 +78,7 @@ const program = async () => {
             console.log('Something went wrong: ', error)
         }
 
-        // Get the schedule title.
+        // Get the schedule title element.
         try {
             const scheduleTitle = await newPage.waitForSelector(
                 'div.lichhoc-content-div > div.lichhoc-all:first-of-type'
@@ -75,15 +90,10 @@ const program = async () => {
                     scheduleTitle
                 )
                 console.log('Title:', title) // Print the title.
-
-                // Write the title to the file.
-                fs.writeFileSync('schedule.txt', title + '\n\n', {
-                    flag: 'a',
-                })
-            } else {
-                console.log('Not found.')
+                scrapedData.title.push(title)
             }
         } catch (error) {
+            res.status(500).json({ message: 'Not found.' })
             console.log(
                 'Something went wrong when getting the schedule title: ',
                 error
@@ -97,7 +107,12 @@ const program = async () => {
             )
 
             const rows = await scheduleTable.$$('tr')
-            for (const row of rows) {
+            for (const [index, row] of rows.entries()) {
+                // Skip the first and last row.
+                if (index === 0 || index === rows.length - 1) {
+                    continue
+                }
+                
                 const columns = await row.$$('td') // Get the columns of each row.
                 const rowData = []
                 for (const column of columns) {
@@ -108,22 +123,21 @@ const program = async () => {
 
                     rowData.push(cellData)
                 }
+                scrapedData.table.push(rowData)
                 console.log(rowData)
-                /*
-                // Write all row data to the file.
-                fs.writeFileSync('schedule.txt', rowData + '\n\n', {
-                    flag: 'a',
-                })
-                */
             }
+
+            res.status(200).json(scrapedData)
         } catch (error) {
-            console.log(
-                'Something went wrong when getting the schedule table: ',
-                error
-            )
+            res.status(500).json({
+                message:
+                    'Something went wrong when getting the schedule table!!',
+            })
         }
     }
-}
+})
 
-// Run the program
-program()
+const PORT = process.env.PORT || 8080
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`)
+})
