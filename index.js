@@ -1,6 +1,8 @@
 const puppeteer = require('puppeteer')
 const dotenv = require('dotenv')
 const express = require('express')
+const bodyParser = require('body-parser')
+const cors = require('cors')
 
 // Set up
 const app = express()
@@ -12,14 +14,21 @@ const mybkURL =
 
 // Middleware
 app.use(express.json())
+app.use(bodyParser.json())
+app.use(cors())
 
 // Routes
-// Get the schedule.
-app.get('/', async (req, res) => {
+// Client posts username and password to the server. Server uses puppeteer to login to mybk and scrape the schedule.
+app.post('/', async (req, res) => {
+    // Get the data from the request body.
+    const { username, password } = req.body
+
+    // Declare scrapedData object.
     const scrapedData = {
         title: [],
         table: [],
     }
+
     const browser = await puppeteer.launch({
         headless: 'new',
         defaultViewport: null,
@@ -34,15 +43,17 @@ app.get('/', async (req, res) => {
     const passwordField = await page.$('#password')
 
     // Fill the form
-    await usernameField.type(process.env.USER_NAME)
-    await passwordField.type(process.env.PASSWORD)
+    // await usernameField.type(process.env.USER_NAME)
+    // await passwordField.type(process.env.PASSWORD)
+
+    await usernameField.type(username)
+    await passwordField.type(password)
 
     // Submit login form
     const submitButton = await page.$('.btn-submit')
     await submitButton.click()
 
     await page.waitForNavigation() // Wait for the page to redirect.
-    console.log('Logged in successfully!')
 
     // Get the stinfo link element.
     const stinfoLink = await page.$(
@@ -75,7 +86,7 @@ app.get('/', async (req, res) => {
 
             console.log('Clicked on schedule button successfully!')
         } catch (error) {
-            console.log('Something went wrong: ', error)
+            console.log(error)
         }
 
         // Get the schedule title element.
@@ -112,7 +123,7 @@ app.get('/', async (req, res) => {
                 if (index === 0 || index === rows.length - 1) {
                     continue
                 }
-                
+
                 const columns = await row.$$('td') // Get the columns of each row.
                 const rowData = []
                 for (const column of columns) {
@@ -134,6 +145,11 @@ app.get('/', async (req, res) => {
                     'Something went wrong when getting the schedule table!!',
             })
         }
+    } else {
+        console.log(
+            'Logged in failed, username or password is invalid, or something haha.'
+        )
+        res.status(401).json({ message: 'Wrong username or password.' })
     }
 })
 
