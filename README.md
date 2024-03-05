@@ -15,7 +15,6 @@ Before you begin, ensure you have met the following requirements:
 
 ```bash
    git clone https://github.com/mercenarioZ/HCMUT_schedule_api.git
-   cd HCMUT_schedule_api
 ```
 2. Install the dependencies:
 
